@@ -35,10 +35,11 @@ function onFirebaseReady(callback) {
         // ===================================================
         const TOPIC_URLS = [
   "https://cdn.jsdelivr.net/gh/ignatt002/blait@main/6-zadanie.json",
-  "https://cdn.jsdelivr.net/gh/ignatt002/blait@main/7-zadanie.json",
+  "https://raw.githubusercontent.com/ignatt002/blait/refs/heads/main/7-zadanie.json",
   "https://cdn.jsdelivr.net/gh/ignatt002/blait@main/8-zadanie.json",
   "https://cdn.jsdelivr.net/gh/ignatt002/blait@main/9-zadanie",
   "https://cdn.jsdelivr.net/gh/ignatt002/blait@main/10-zadanie",
+  "https://raw.githubusercontent.com/ignatt002/blait/refs/heads/main/12-zadanie.json",
   "https://cdn.jsdelivr.net/gh/ignatt002/blait@main/13-zadanie.json",
   "https://cdn.jsdelivr.net/gh/ignatt002/blait@main/14%20%D0%B7%D0%B0%D0%B4%D0%B0%D0%BD%D0%B8%D0%B5",
   "https://cdn.jsdelivr.net/gh/ignatt002/blait@main/15-zadanie.json",
@@ -206,6 +207,44 @@ function onFirebaseReady(callback) {
                 }
             }
             return { cols, rows, data };
+        }
+
+        // Таблица для урока и теории. В JSON ключ должен начинаться с "table" (table, table1, tableA...).
+        // Значение может быть тремя способами:
+        //   1) строка в формате шпаргалок: "столбов: 2, строк: 2. столб 1, строка 1: ..."
+        //   2) массив строк:  [["x", "1", "2"], ["y", "3", "4"]]
+        //   3) объект с заголовком:  { "header": ["x", "y"], "rows": [["1", "3"], ["2", "4"]] }
+        function createLessonTable(value) {
+            let header = null, rows = [];
+            if (typeof value === 'string') {
+                rows = parseCustomTable(value).data;
+            } else if (Array.isArray(value)) {
+                rows = value;
+            } else if (value && typeof value === 'object') {
+                header = Array.isArray(value.header) ? value.header : null;
+                rows = Array.isArray(value.rows) ? value.rows : [];
+            }
+            if (!header && rows.length === 0) return null;
+
+            const makeRow = (cells, tag) => {
+                const tr = document.createElement('tr');
+                (Array.isArray(cells) ? cells : [cells]).forEach(cell => {
+                    const el = document.createElement(tag);
+                    el.innerHTML = autoWrapMath(cell == null ? '' : String(cell));
+                    tr.appendChild(el);
+                });
+                return tr;
+            };
+
+            const table = document.createElement('table');
+            table.className = 'cs-table task-table';
+            if (header) table.appendChild(makeRow(header, 'th'));
+            rows.forEach(r => table.appendChild(makeRow(r, 'td')));
+
+            const wrap = document.createElement('div');
+            wrap.className = 'task-table-wrap';
+            wrap.appendChild(table);
+            return wrap;
         }
 
         function toggleCheatSheet() {
@@ -1769,6 +1808,9 @@ answerChip.classList.add('removing');
             div.innerHTML = codeText.replace(/\n/g, '<br>');
             bubble.appendChild(div);
         }
+        } else if (key.toLowerCase().startsWith('table')) {
+        const tableEl = createLessonTable(task[key]);
+        if (tableEl) bubble.appendChild(tableEl);
     } else if (key.toLowerCase().startsWith('graph') && !claimedGraphKeys.has(key)) {
     const graphCommands = task[key];
     if (Array.isArray(graphCommands) && graphCommands.length > 0) {
@@ -2001,6 +2043,12 @@ if (!currentLesson || !showTheoryBtn || !theory) return;
                         div.innerHTML = codeText.replace(/\n/g, '<br>');
                         bubble.appendChild(div);
                     }
+                                } else if (key.toLowerCase().startsWith('table')) {
+                    const tableEl = createLessonTable(theory[key]);
+                    if (tableEl) bubble.appendChild(tableEl);
+                                } else if (key.toLowerCase().startsWith('table')) {
+                    const tableEl = createLessonTable(theory[key]);
+                    if (tableEl) bubble.appendChild(tableEl);
                 } else if (key.toLowerCase().startsWith('graph')) {
                     const graphCommands = theory[key];
                     if (Array.isArray(graphCommands) && graphCommands.length > 0) {
@@ -2704,7 +2752,7 @@ function copyLessonCode() {
                 feedbackTitle.style.opacity = '';
                 feedbackTitle.style.animation = '';
                 feedbackTitle.style.transform = '';
-                feedbackTitle.innerHTML = '💡 Объяснение';
+                feedbackTitle.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 280" width="30" style="vertical-align: -6px; margin-right: 6px;"><path fill="#ffc22f" d="M83 168Q76 168 79 183L89 218Q93 235 112 235H128Q147 235 151 218L161 183Q164 168 157 168Z"/><circle cx="120" cy="100" r="88" fill="#ffde25"/><path fill="#FFF0B8" d="M49 55Q61 33 85 30Q100 28 94 44L61 75Q42 85 49 55Z"/><circle cx="49" cy="88" r="6" fill="#FFF0B8"/><path d="M91 111H149Q155 111 151 118L137 140Q132 150 132 163M108 163Q108 150 103 140L89 118Q85 111 91 111" fill="none" stroke="#fff8df" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/></svg> Объяснение';
                 
                 const task = currentLesson.tasks[currentTaskIndex];
                 const expContainer = document.getElementById('l-feedback-explanation');
@@ -2819,8 +2867,8 @@ btnCloseExplain.addEventListener('animationend', () => {
                     btnCloseExplain.classList.remove('btn-animated');
                 }, { once: true });
                 
-                // Запускаем анимацию высоты до 100vh и плавно показываем новый контент
-                footer.style.height = '100vh';
+                // Запускаем анимацию высоты до 100dvh и плавно показываем новый контент
+                footer.style.height = '100dvh';
                 footerContent.style.opacity = '1';
                 
                 // После завершения анимации убираем жестко заданную высоту
@@ -3376,6 +3424,57 @@ function tryRenderTurnstile(attemptsLeft) {
         setTimeout(() => tryRenderTurnstile(attemptsLeft - 1), 300);
     }
 }
+    function tryRenderLoginTurnstile(attemptsLeft) {
+    if (window.loginTurnstileWidgetId !== undefined) return;
+    if (typeof turnstile !== "undefined") {
+        window.loginTurnstileWidgetId = turnstile.render('#login-turnstile-widget-container', {
+            sitekey: '0x4AAAAAAE6lU4gh3B9UfXaL',
+            action: 'login'
+        });
+        return;
+    }
+    if (attemptsLeft > 0) {
+        setTimeout(() => tryRenderLoginTurnstile(attemptsLeft - 1), 300);
+    }
+}
+
+let loginLockUntil = 0;
+let loginLockInterval = null;
+let loginRequireTurnstile = false;
+
+function startLoginLock(lockType, lockSeconds, requireTurnstile) {
+    loginLockUntil = Date.now() + lockSeconds * 1000;
+    loginRequireTurnstile = requireTurnstile;
+    authSubmitBtn.disabled = true;
+authSubmitBtn.style.opacity = "0.5";
+
+    if (requireTurnstile) {
+        document.getElementById('auth-login-turnstile-group').classList.remove('hidden');
+        tryRenderLoginTurnstile(20);
+    }
+
+    if (loginLockInterval) clearInterval(loginLockInterval);
+
+        function tick() {
+        const secondsLeft = Math.ceil((loginLockUntil - Date.now()) / 1000);
+        if (secondsLeft <= 0) {
+            clearInterval(loginLockInterval);
+            loginLockInterval = null;
+            authSubmitBtn.disabled = false;
+            authSubmitBtn.style.opacity = "1";
+            if (!isRegisterMode) authError.style.display = "none";
+            return;
+        }
+        if (isRegisterMode) return;
+        authError.textContent = lockType === 'long'
+            ? "Слишком много неверных попыток. Вы можете попробовать ещё раз через час."
+            : "Подождите... " + secondsLeft;
+        authError.style.display = "block";
+        }
+
+    tick();
+    loginLockInterval = setInterval(tick, 1000);
+}
 
   // Переключение между "Вход" и "Регистрация"
   authToggle.addEventListener("click", () => {
@@ -3386,7 +3485,15 @@ function tryRenderTurnstile(attemptsLeft) {
     authError.style.display = "none";
     document.getElementById('auth-consent-group').classList.toggle('hidden', !isRegisterMode);
     document.getElementById('auth-consent-checkbox').checked = false;
-document.getElementById('auth-turnstile-group').classList.toggle('hidden', !isRegisterMode);
+      if (!isRegisterMode && Date.now() < loginLockUntil) {
+    authSubmitBtn.disabled = true;
+    authSubmitBtn.style.opacity = "0.5";
+} else {
+    authSubmitBtn.disabled = false;
+    authSubmitBtn.style.opacity = "1";
+      }
+    document.getElementById('auth-login-turnstile-group').classList.add('hidden');
+    document.getElementById('auth-turnstile-group').classList.toggle('hidden', !isRegisterMode);
 if (isRegisterMode) {
     tryRenderTurnstile(20);
 }
@@ -3394,6 +3501,9 @@ if (isRegisterMode) {
 
   // Отправка формы
   authSubmitBtn.addEventListener("click", async () => {
+      if (!isRegisterMode && Date.now() < loginLockUntil) {
+    return;
+      }
     authSubmitBtn.classList.add("loading");
 authSubmitBtn.disabled = true;
     const email = authEmail.value.trim();
@@ -3417,7 +3527,17 @@ if (isRegisterMode && !document.getElementById('auth-consent-checkbox').checked)
     }
 let turnstileToken = "";
 if (isRegisterMode) {
-    turnstileToken = (typeof turnstile !== "undefined" && window.turnstileWidgetId !== undefined) ? turnstile.getResponse(window.turnstileWidgetId) : "";
+    turnstileToken = (typeof turnstile !== "undefined") ? turnstile.getResponse() : "";
+    if (!turnstileToken) {
+        authError.textContent = "Подтвердите, что вы не робот";
+        authError.style.display = "block";
+        authSubmitBtn.classList.remove("loading");
+        authSubmitBtn.disabled = false;
+        return;
+    }
+} else if (loginRequireTurnstile) {
+    turnstileToken = (typeof turnstile !== "undefined" && window.loginTurnstileWidgetId !== undefined)
+        ? turnstile.getResponse(window.loginTurnstileWidgetId) : "";
     if (!turnstileToken) {
         authError.textContent = "Подтвердите, что вы не робот";
         authError.style.display = "block";
@@ -3457,10 +3577,26 @@ try {
     const { res, data } = result;
 
     if (!res.ok) {
-        authError.textContent = data.error || "Ошибка входа";
-        authError.style.display = "block";
+    if (data.error === 'locked') {
+        startLoginLock(data.lockType, data.lockSecondsRemaining, data.requireTurnstile);
         return;
     }
+    if (data.requireTurnstile) {
+        loginRequireTurnstile = true;
+        document.getElementById('auth-login-turnstile-group').classList.remove('hidden');
+        if (window.loginTurnstileWidgetId !== undefined && typeof turnstile !== "undefined") {
+            turnstile.reset(window.loginTurnstileWidgetId);
+        } else {
+            tryRenderLoginTurnstile(20);
+        }
+    }
+    authError.textContent = data.error || "Ошибка входа";
+    authError.style.display = "block";
+    return;
+}
+loginRequireTurnstile = false;
+loginLockUntil = 0;
+document.getElementById('auth-login-turnstile-group').classList.add('hidden');
 
     await signInWithCustomToken(auth, data.token);
     localStorage.setItem("platformLogin", email);
@@ -4049,4 +4185,4 @@ function createGraphBox(graphCommands) {
 
     graphWrapper.appendChild(iframe);
     return graphWrapper;
-                }
+                                                            }
