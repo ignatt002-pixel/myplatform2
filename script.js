@@ -34,6 +34,7 @@ function onFirebaseReady(callback) {
         // база уроков
         // ===================================================
         const TOPIC_URLS = [
+  "https://raw.githubusercontent.com/ignatt002/blait/refs/heads/main/1-5-sheets.json",
   "https://cdn.jsdelivr.net/gh/ignatt002/blait@main/6-zadanie.json",
   "https://raw.githubusercontent.com/ignatt002/blait/refs/heads/main/7-zadanie.json",
   "https://cdn.jsdelivr.net/gh/ignatt002/blait@main/8-zadanie.json",
@@ -1422,11 +1423,21 @@ currentLessonFailedTasks = [];
                 currentLesson.tasks = autoGenerateLesson(currentLesson.tasks);
             }
 
+                        // Подставляем задания из генератора ОГЭ (oge-1-5-generator.js) вместо записей { "generator": "..." }.
+            // Идёт ПОСЛЕ autoGenerateLesson, поэтому эти задания остаются обычным вводом ответа.
+            if (typeof expandOgeGenerators === 'function' && Array.isArray(currentLesson.tasks)) {
+                if (!currentLesson.ogeSourceTasks && currentLesson.tasks.some(t => t && typeof t.generator === 'string')) {
+                    currentLesson.ogeSourceTasks = currentLesson.tasks;
+                }
+                if (currentLesson.ogeSourceTasks) {
+                    currentLesson.tasks = expandOgeGenerators(currentLesson.ogeSourceTasks, lessonId);
+                }
+            }
+
             currentTaskIndex = 0;
             loadTask();
 
             savedPathScrollPosition = window.scrollY || document.documentElement.scrollTop;
-
             const menuView = document.getElementById('menu-view');
             const lessonView = document.getElementById('lesson-view');
             const bottomNav = document.getElementById('bottom-nav');
