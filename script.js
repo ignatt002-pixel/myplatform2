@@ -67,6 +67,7 @@ function onFirebaseReady(callback) {
                 if (data.topic) {
                     let topicCopy = JSON.parse(JSON.stringify(data.topic));
                     topicCopy.baseId = data.topic.id;
+topicCopy.sourceUrl = TOPIC_URLS[index];
                     topicCopy.id = topicCopy.id + '-' + index;
                     COURSE_DATA.topics.push(topicCopy);
                 }
@@ -2157,7 +2158,7 @@ if (!currentLesson || !showTheoryBtn || !theory) return;
             if (dropdown.classList.contains('hidden')) {
                 document.getElementById('ld-title').innerText = currentLesson.title;
                 document.getElementById('ld-progress').innerText = currentLesson.isGenerator ? `Задание ${currentTaskIndex + 1}` : `Задание ${currentTaskIndex + 1} из ${currentLesson.tasks.length}`;
-                document.getElementById('ld-code').innerText = currentLessonId;
+                document.getElementById('ld-code').innerText = currentLessonId + (typeof ogeSeedLabel === 'function' ? ogeSeedLabel(currentLesson) : '');
                 dropdown.classList.remove('hidden');
                 
                 if (currentAppState !== 'lesson_dropdown') {
@@ -2185,7 +2186,7 @@ if (!currentLesson || !showTheoryBtn || !theory) return;
 
         function showReportModal() {
             document.getElementById('lesson-dropdown').classList.add('hidden');
-            document.getElementById('report-lesson-code').innerText = currentLessonId;
+            document.getElementById('report-lesson-code').innerText = currentLessonId + (typeof ogeSeedLabel === 'function' ? ogeSeedLabel(currentLesson) : '');
             document.getElementById('report-modal-overlay').classList.remove('hidden');
             
             if (currentAppState !== 'report_modal') {
@@ -4197,3 +4198,141 @@ function createGraphBox(graphCommands) {
     graphWrapper.appendChild(iframe);
     return graphWrapper;
                                                             }
+
+/* ===== Листание заданий (только тема из 1-5-sheets.json) ===== */
+const lessonNav = { states: {}, max: 0 };
+
+function lessonNavEnabled() {
+    return !!(currentLesson && currentTopic && /1-5-sheets/.test(currentTopic.sourceUrl || ''));
+}
+
+function lessonNavSave(idx) {
+    const task = currentLesson && currentLesson.tasks[idx];
+    if (!task) return;
+    const cv = document.getElementById('l-draft-canvas');
+    let canvasData = null, drawMode = false;
+    if (cv) {
+        drawMode = !cv.classList.contains('hidden');
+        if (cv.width > 0 && cv.height > 0) {
+            try { canvasData = cv.toDataURL(); } catch (e) {}
+        }
+    }
+    lessonNav.states[idx] = {
+        answer: document.getElementById('l-answer').value,
+        draft: document.getElementById('l-draft').value,
+        opt: selectedOptionIndex,
+        opts: [...selectedOptionIndices],
+        details: [...detailsSequence],
+        canvasData, drawMode
+    };
+}
+
+function lessonNavRestore(idx) {
+    const s = lessonNav.states[idx];
+    const task = currentLesson.tasks[idx];
+    if (!s || !task) return;
+    document.getElementById('l-answer').value = s.answer;
+    document.getElementById('l-draft').value = s.draft;
+
+    if (getOptionsCount(task) > 0) {
+        if (isMultiSelect(task)) s.opts.forEach(i => selectOption(i, task));
+        else if (s.opt) selectOption(s.opt, task);
+    } else if (getDetailsCount(task) > 0) {
+        s.details.forEach(i => toggleDetail(i));
+    }
+
+    const cv = document.getElementById('l-draft-canvas');
+    if (cv) {
+        const isDraw = !cv.classList.contains('hidden');
+        if (s.drawMode !== isDraw && typeof toggleDraftDrawMode === 'function') toggleDraftDrawMode();
+        if (s.canvasData) {
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+                if (!cv.width || !cv.height) return;
+                const img = new Image();
+                img.onload = () => {
+                    const ctx = cv.getContext('2d');
+                    ctx.save();
+                    ctx.setTransform(1, 0, 0, 1, 0, 0);
+                    ctx.clearRect(0, 0, cv.width, cv.height);
+                    ctx.drawImage(img, 0, 0, cv.width, cv.height);
+                    ctx.restore();
+                };
+                img.src = s.canvasData;
+            }));
+        }
+    }
+}
+
+function lessonNavUpdateUi() {
+    const fb = document.getElementById('footer-buttons');
+    const prev = document.getElementById('lesson-nav-prev');
+    const next = document.getElementById('lesson-nav-next');
+    const btnCheck = document.getElementById('btn-check');
+    const on = lessonNavEnabled();
+    fb.classList.toggle('nav-on', on);
+    if (!on) { btnCheck.style.opacity = ''; return; }
+
+    const idx = currentTaskIndex;
+    prev.disabled = idx === 0;
+    prev.style.opacity = prev.disabled ? '0.5' : '1';
+    next.disabled = idx >= lessonNav.max;
+    next.style.opacity = next.disabled ? '0.5' : '1';
+
+    // уже решённое задание: «Проверить» гаснет как в окне входа
+    btnCheck.style.opacity = idx < lessonNav.max ? '0.5' : '1';
+
+    // прогресс-бар не откатывается назад
+    const total = currentLesson.tasks.length;
+    if (total > 0) {
+        document.getElementById('l-progress-fill').style.width =
+            Math.min(100, (lessonNav.max / total) * 100) + '%';
+    }
+}
+
+function lessonNavGo(dir) {
+    if (!lessonNavEnabled()) return;
+    const target = currentTaskIndex + dir;
+    if (target < 0 || target > lessonNav.max) return;
+    if (typeof closeMathKeyboard === 'function') closeMathKeyboard();
+    lessonNavSave(currentTaskIndex);
+    currentTaskIndex = target;
+    loadTask();
+}
+
+// --- обёртки над существующими функциями ---
+const _lnLoadTask = loadTask;
+loadTask = function () {
+    _lnLoadTask.apply(this, arguments);
+    if (lessonNavEnabled()) {
+        lessonNav.max = Math.max(lessonNav.max, currentTaskIndex);
+        lessonNavRestore(currentTaskIndex);
+    }
+    lessonNavUpdateUi();
+};
+
+const _lnNextTask = nextTask;
+nextTask = function () {
+    if (lessonNavEnabled()) lessonNavSave(currentTaskIndex);
+    _lnNextTask.apply(this, arguments);
+};
+
+const _lnCheckAnswer = checkAnswer;
+checkAnswer = function () {
+    // уже решённое задание — повторно не проверяем
+    if (lessonNavEnabled() && currentTaskIndex < lessonNav.max) return;
+    _lnCheckAnswer.apply(this, arguments);
+};
+
+const _lnStartLesson = startLesson;
+startLesson = function () {
+    lessonNav.states = {};
+    lessonNav.max = 0;
+    return _lnStartLesson.apply(this, arguments);
+};
+
+const _lnCloseLesson = actuallyCloseLesson;
+actuallyCloseLesson = function () {
+    lessonNav.states = {};
+    lessonNav.max = 0;
+    return _lnCloseLesson.apply(this, arguments);
+};
