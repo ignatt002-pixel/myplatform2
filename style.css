@@ -2351,3 +2351,10 @@ body.draft-fullscreen-open {
 .task-table-wrap { overflow-x: auto; margin: 12px 0; padding: 2px; -webkit-overflow-scrolling: touch; }
 .task-table-wrap .cs-table { margin-bottom: 0; }
 .task-table td { font-weight: 400; }
+
+.lesson-nav-btn { display: none; flex: 0 0 50px; align-self: center; }
+.footer-buttons.nav-on .lesson-nav-btn { display: flex; }
+.lesson-footer.state-success .lesson-nav-btn,
+.lesson-footer.state-error .lesson-nav-btn,
+.lesson-footer.explanation-mode .lesson-nav-btn,
+.lesson-footer.explanation-closing .lesson-nav-btn { display: none !important; }
