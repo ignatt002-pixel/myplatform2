@@ -93,6 +93,7 @@ topicCopy.sourceUrl = TOPIC_URLS[index];
                 }
             });
 
+            buildGraphRegistry(topicsData);
             preprocessCourseData();
             renderTopics();
             renderRepetitionTopics();
@@ -1705,7 +1706,7 @@ answerChip.classList.add('removing');
             const pos = keys.indexOf(`${optionIndex} option`);
             if (pos === -1 || pos + 1 >= keys.length) return null;
             const nextKey = keys[pos + 1];
-            if (nextKey.toLowerCase().startsWith('graph') && Array.isArray(task[nextKey]) && task[nextKey].length > 0) {
+            if (nextKey.toLowerCase().startsWith('graph') && isGraphValue(task[nextKey])) {
                 return nextKey;
             }
             return null;
@@ -1825,7 +1826,7 @@ answerChip.classList.add('removing');
         if (tableEl) bubble.appendChild(tableEl);
     } else if (key.toLowerCase().startsWith('graph') && !claimedGraphKeys.has(key)) {
     const graphCommands = task[key];
-    if (Array.isArray(graphCommands) && graphCommands.length > 0) {
+    if (isGraphValue(graphCommands)) {
         bubble.appendChild(createGraphBox(graphCommands));
     }
 }}
@@ -2063,7 +2064,7 @@ if (!currentLesson || !showTheoryBtn || !theory) return;
                     if (tableEl) bubble.appendChild(tableEl);
                 } else if (key.toLowerCase().startsWith('graph')) {
                     const graphCommands = theory[key];
-                    if (Array.isArray(graphCommands) && graphCommands.length > 0) {
+                    if (isGraphValue(graphCommands)) {
                         bubble.appendChild(createGraphBox(graphCommands));
                     }
                 }
@@ -2120,7 +2121,7 @@ if (!currentLesson || !showTheoryBtn || !theory) return;
                     }
                 } else if (key.toLowerCase().startsWith('graph')) {
                     const graphCommands = theory[key];
-                    if (Array.isArray(graphCommands) && graphCommands.length > 0) {
+                    if (isGraphValue(graphCommands)) {
                         bubble.appendChild(createGraphBox(graphCommands));
                     }
                 }
@@ -4163,7 +4164,58 @@ function closeDailyQuestsModal() {
     }, 300);
           }
 
+// ===== Именованные графики =====
+// Описание графика с именем:   "graph parabola1": [ "команда", ... ]
+// Вставка графика по имени:    "graph": { "name": "parabola1" }
+
+// Это график (массив команд) или ссылка на график по имени?
+function isGraphValue(v) {
+    return (Array.isArray(v) && v.length > 0) ||
+        (!!v && typeof v === 'object' && !Array.isArray(v) && typeof v.name === 'string' && v.name.trim() !== '');
+}
+
+// Один раз просматривает все загруженные темы и собирает «имя → команды»
+function buildGraphRegistry(root) {
+    const reg = {};
+    const walk = function (node) {
+        if (Array.isArray(node)) { node.forEach(walk); return; }
+        if (!node || typeof node !== 'object') return;
+        Object.keys(node).forEach(function (key) {
+            const val = node[key];
+            const m = /^graph\s+(.+)$/i.exec(key);
+            if (m && Array.isArray(val) && val.length > 0) {
+                const name = m[1].trim();
+                // «graph 2», «graph 3» — это обычные графики, а не имена
+                if (name !== '' && !/^\d+$/.test(name)) {
+                    if (!reg[name]) reg[name] = val;
+                    else if (JSON.stringify(reg[name]) !== JSON.stringify(val)) {
+                        console.warn('Граф с именем «' + name + '» описан несколько раз по-разному. Используется первый.');
+                    }
+                }
+            }
+            walk(val);
+        });
+    };
+    walk(root);
+    window.GRAPH_REGISTRY = reg;
+}
+
+// Возвращает массив команд графика или null
+function resolveGraphCommands(value) {
+    if (Array.isArray(value)) return value.length > 0 ? value : null;
+    if (value && typeof value === 'object' && typeof value.name === 'string') {
+        const name = value.name.trim();
+        const found = (window.GRAPH_REGISTRY || {})[name];
+        if (found) return found;
+        console.error('Граф «' + name + '» не найден. Проверь, что где-то есть ключ "graph ' + name + '": [...]');
+    }
+    return null;
+}
+
 function createGraphBox(graphCommands) {
+    const resolvedCommands = resolveGraphCommands(graphCommands);
+    if (!resolvedCommands) return document.createElement('div');
+    graphCommands = resolvedCommands;
     const graphWrapper = document.createElement('div');
     graphWrapper.className = 'graph-box-wrapper';
     graphWrapper.style.width = '100%';
