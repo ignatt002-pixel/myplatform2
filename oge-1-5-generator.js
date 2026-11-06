@@ -1,32 +1,3 @@
-/* ===================================================
-   oge-1-5-generator.js
-
-   Генератор заданий ОГЭ 1–5. Хранит шаблоны заданий, подставляет в них
-   числа, считает ответ и объяснение и отдаёт платформе обычные задания —
-   такие же, как из JSON-файла урока.
-
-   КАК ПОДКЛЮЧАТЬ В УРОКЕ (JSON урока):
-     "tasks": [
-       { "generator": "sheets" }                       // все 5 заданий блока «Листы»
-       { "generator": "sheets", "parts": [1, 3] }      // только задания 1.1 и 1.3
-       { "generator": "sheets", "seed": "TEST1" }      // зафиксированный вариант (для проверки)
-     ]
-
-   СИД. При каждом открытии урока числа выбираются случайно, но у каждого
-   варианта есть свой сид — короткий код вроде K7F3A9QX (он записан в задании
-   как task.ogeSeed). Один и тот же сид ВСЕГДА даёт один и тот же вариант.
-   Человек присылает сид в жалобе, а ты открываешь этот вариант так:
-     • добавь к адресу сайта  ?oge_seed=K7F3A9QX
-     • или в консоли браузера: ogeReplaySeed('K7F3A9QX')  (потом открой урок)
-   Можно вставлять и полный код из жалобы, например oge-sheets-1-K7F3A9QX.
-   Чтобы вернуться к случайным вариантам: ogeReplaySeed('')
-
-   Сид можно зафиксировать и в JSON урока: { "generator": "sheets", "seed": "TEST1" }
-
-   КАК ДОБАВИТЬ НОВЫЙ БЛОК: написать OGE_GENERATORS.имя = { scenario, tasks }
-   (см. OGE_GENERATORS.sheets ниже) — движок трогать не нужно.
-   =================================================== */
-
 (function (global) {
     'use strict';
 
@@ -503,13 +474,15 @@
     // Собирает один блок: возвращает массив готовых заданий.
     //   opts.seed  — сид (если не указан — случайный)
     //   opts.parts — какие задания блока взять, например [1, 3] (нумерация с 1)
+    //   opts.salt  — добавка к сиду, чтобы повторы одного блока отличались друг от друга
     // В каждом задании лежит task.ogeSeed — код варианта для жалоб.
     function generateOgeBlock(name, opts) {
         opts = opts || {};
         const def = OGE_GENERATORS[name];
         if (!def) throw new Error('OGE: нет генератора «' + name + '»');
         const code = forcedSeed || (opts.seed === undefined ? newSeedCode() : normalizeSeed(opts.seed));
-        const vars = def.scenario(makeRng(code));
+        const rngSeed = opts.salt === undefined ? code : code + ':' + opts.salt;
+        const vars = def.scenario(makeRng(rngSeed));
         const result = [];
         def.tasks.forEach(function (template, i) {
             if (Array.isArray(opts.parts) && opts.parts.indexOf(i + 1) === -1) return;
@@ -520,16 +493,39 @@
         return result;
     }
 
+    // Сколько раз повторить набор: "count": 6 (целое от 1 до 50, по умолчанию 1)
+    const MAX_REPEAT = 50;
+    function repeatCount(set) {
+        const n = Math.floor(Number(set && set.count));
+        return n >= 1 ? Math.min(n, MAX_REPEAT) : 1;
+    }
+
+    // Наборы записи: либо "sets": [ {parts, count}, ... ], либо сама запись как один набор
+    function entrySets(entry) {
+        return (Array.isArray(entry.sets) && entry.sets.length) ? entry.sets : [entry];
+    }
+
     // Заменяет в списке заданий урока записи { "generator": "..." } на готовые задания.
-    // Без "seed" в записи каждый вариант получает новый случайный сид.
+    // У всего урока один сид (виден в жалобе), а каждое повторение набора получает
+    // из него своё отдельное число вариантов — поэтому по одному сиду урок восстанавливается целиком.
     function expandOgeGenerators(tasks, lessonId) {
+        const master = forcedSeed || newSeedCode();
         const out = [];
-        tasks.forEach(function (entry) {
+        tasks.forEach(function (entry, entryIdx) {
             if (!entry || typeof entry.generator !== 'string') { out.push(entry); return; }
             try {
                 const fixed = (entry.seed === undefined || entry.seed === 'random') ? undefined : entry.seed;
-                generateOgeBlock(entry.generator, { seed: fixed, parts: entry.parts })
-                    .forEach(function (t) { out.push(t); });
+                const code = fixed === undefined ? master : fixed;
+                entrySets(entry).forEach(function (set, setIdx) {
+                    const times = repeatCount(set);
+                    for (let r = 0; r < times; r++) {
+                        generateOgeBlock(entry.generator, {
+                            seed: code,
+                            parts: set.parts,
+                            salt: entryIdx + '.' + setIdx + '.' + r
+                        }).forEach(function (t) { out.push(t); });
+                    }
+                });
             } catch (e) {
                 console.error('Ошибка генератора ОГЭ:', e);
             }
@@ -538,7 +534,7 @@
     }
 
     // Добавка к коду урока для окна жалобы: код урока "oge-sheets-1" -> "oge-sheets-1-88CTHNYJ".
-    // Если в уроке нет генератора — пустая строка. Если сидов несколько — через «+».
+    // Если в уроке нет генератора — пустая строка.
     function ogeSeedLabel(lesson) {
         if (!lesson || !Array.isArray(lesson.tasks)) return '';
         const seen = [];
@@ -553,7 +549,10 @@
         let n = 0;
         tasks.forEach(function (entry) {
             if (entry && typeof entry.generator === 'string' && OGE_GENERATORS[entry.generator]) {
-                n += Array.isArray(entry.parts) ? entry.parts.length : OGE_GENERATORS[entry.generator].tasks.length;
+                entrySets(entry).forEach(function (set) {
+                    const per = Array.isArray(set.parts) ? set.parts.length : OGE_GENERATORS[entry.generator].tasks.length;
+                    n += per * repeatCount(set);
+                });
             } else {
                 n += 1;
             }
