@@ -1282,7 +1282,9 @@ if (isSectionHeader(level)) {
             if (lesson.isRepetition) {
                 tasksCount = lesson.tasksToGather || 0;
             } else {
-                tasksCount = lesson.tasks ? lesson.tasks.length : 0;
+                tasksCount = lesson.tasks
+                    ? (typeof countOgeTasks === 'function' ? countOgeTasks(lesson.tasks) : lesson.tasks.length)
+                    : 0;
             }
             
             let taskWord = "заданий";
