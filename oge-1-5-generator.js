@@ -14,8 +14,8 @@
        // сколько раз показать набор ("count"); набор из 1.1 и 1.3 покажется 6 раз: 1,3,1,3,...
        { "generator": "sheets", "parts": [1, 3], "count": 6 }
  
-       // свой текст перед заданиями: покажется отдельным экраном, потом пойдут сгенерированные
-       { "type": "theory", "text": "А теперь попробуй сам!", "generator": "sheets", "count": 2 }
+       // свой текст: покажется В НАЧАЛЕ первого сгенерированного задания (над графиком и условием)
+       { "text": "А теперь попробуй сам!", "generator": "sheets", "count": 2 }
  
        // несколько наборов подряд: сначала 3 раза задание 1.1, потом 4 раза задание 1.3
        { "generator": "sheets", "sets": [
@@ -506,21 +506,17 @@
         return (Array.isArray(entry.sets) && entry.sets.length) ? entry.sets : [entry];
     }
  
-    // Если рядом с "generator" написано что-то своё (text, graph, ...), это показывается
-    // отдельным заданием-вступлением ПЕРЕД сгенерированными заданиями (один раз на запись).
-    // Служебные поля генератора во вступление не попадают.
-    const GENERATOR_KEYS = ['generator', 'parts', 'count', 'sets', 'seed'];
-    function entryIntro(entry) {
-        const intro = {};
+    // Если рядом с "generator" написано что-то своё (text, graph, ...), оно добавляется
+    // В НАЧАЛО первого сгенерированного задания этой записи — на тот же экран, выше
+    // графика и условия. Служебные поля (generator, parts, count, sets, seed, type, isOge,
+    // correctAnswer) не копируются: тип и ответ всегда берутся из генератора.
+    const SERVICE_KEYS = ['generator', 'parts', 'count', 'sets', 'seed', 'type', 'isOge', 'correctAnswer', 'explanationFields'];
+    function entryOwnFields(entry) {
+        const own = {};
         Object.keys(entry).forEach(function (k) {
-            if (GENERATOR_KEYS.indexOf(k) === -1) intro[k] = entry[k];
+            if (SERVICE_KEYS.indexOf(k) === -1) own[k] = entry[k];
         });
-        const own = Object.keys(intro).filter(function (k) { return k !== 'type'; });
-        if (!own.length) return null;
-        // Без правильного ответа вводить нечего — это обычный экран с текстом
-        if (intro.type === 'input' && intro.correctAnswer === undefined) intro.type = 'theory';
-        if (intro.type === undefined) intro.type = 'theory';
-        return JSON.parse(JSON.stringify(intro));
+        return Object.keys(own).length ? JSON.parse(JSON.stringify(own)) : null;
     }
  
     // Заменяет в списке заданий урока записи { "generator": "..." } на готовые задания.
@@ -534,8 +530,8 @@
             try {
                 const fixed = (entry.seed === undefined || entry.seed === 'random') ? undefined : entry.seed;
                 const code = fixed === undefined ? master : fixed;
-                const intro = entryIntro(entry);
-                if (intro) out.push(intro);
+                const own = entryOwnFields(entry);
+                let ownPlaced = false;
                 entrySets(entry).forEach(function (set, setIdx) {
                     const times = repeatCount(set);
                     for (let r = 0; r < times; r++) {
@@ -543,7 +539,14 @@
                             seed: code,
                             parts: set.parts,
                             salt: entryIdx + '.' + setIdx + '.' + r
-                        }).forEach(function (t) { out.push(t); });
+                        }).forEach(function (t) {
+                            if (own && !ownPlaced) {
+                                // свои поля первыми, дальше — поля задания из генератора
+                                t = Object.assign({}, own, t);
+                                ownPlaced = true;
+                            }
+                            out.push(t);
+                        });
                     }
                 });
             } catch (e) {
@@ -569,7 +572,6 @@
         let n = 0;
         tasks.forEach(function (entry) {
             if (entry && typeof entry.generator === 'string' && OGE_GENERATORS[entry.generator]) {
-                if (entryIntro(entry)) n += 1;
                 entrySets(entry).forEach(function (set) {
                     const per = Array.isArray(set.parts) ? set.parts.length : OGE_GENERATORS[entry.generator].tasks.length;
                     n += per * repeatCount(set);
