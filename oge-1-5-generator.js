@@ -14,8 +14,9 @@
        // сколько раз показать набор ("count"); набор из 1.1 и 1.3 покажется 6 раз: 1,3,1,3,...
        { "generator": "sheets", "parts": [1, 3], "count": 6 }
  
-       // свой текст: покажется В НАЧАЛЕ первого сгенерированного задания (над графиком и условием)
-       { "text": "А теперь попробуй сам!", "generator": "sheets", "count": 2 }
+       // свои тексты: покажутся В НАЧАЛЕ первого сгенерированного задания (над графиком и условием).
+       // Несколько блоков — через text, text1, text2... (одинаковые ключи в JSON писать нельзя)
+       { "text": "Привет!", "text1": "А теперь попробуй сам!", "generator": "sheets", "count": 2 }
  
        // несколько наборов подряд: сначала 3 раза задание 1.1, потом 4 раза задание 1.3
        { "generator": "sheets", "sets": [
@@ -519,6 +520,19 @@
         return Object.keys(own).length ? JSON.parse(JSON.stringify(own)) : null;
     }
  
+    // Свои поля идут первыми (в том порядке, как написаны в JSON), дальше — поля задания из генератора.
+    // Если ключ совпал (например, твой "text2" и "text2" генератора), ключ генератора получает
+    // суффикс "_gen" — платформа всё равно узнаёт его по началу названия (text, table, graph, code).
+    function mergeOwnFields(own, task) {
+        const merged = Object.assign({}, own);
+        Object.keys(task).forEach(function (k) {
+            let key = k;
+            while (Object.prototype.hasOwnProperty.call(merged, key)) key += '_gen';
+            merged[key] = task[k];
+        });
+        return merged;
+    }
+ 
     // Заменяет в списке заданий урока записи { "generator": "..." } на готовые задания.
     // У всего урока один сид (виден в жалобе), а каждое повторение набора получает
     // из него своё отдельное число вариантов — поэтому по одному сиду урок восстанавливается целиком.
@@ -541,8 +555,7 @@
                             salt: entryIdx + '.' + setIdx + '.' + r
                         }).forEach(function (t) {
                             if (own && !ownPlaced) {
-                                // свои поля первыми, дальше — поля задания из генератора
-                                t = Object.assign({}, own, t);
+                                t = mergeOwnFields(own, t);
                                 ownPlaced = true;
                             }
                             out.push(t);
