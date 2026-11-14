@@ -7,8 +7,13 @@
  
    КАК ПОДКЛЮЧАТЬ В УРОКЕ (JSON урока):
      "tasks": [
-       { "generator": "sheets" }                       // все 5 заданий блока «Листы»
-       { "generator": "sheets", "parts": [1, 3] }      // только задания 1.1 и 1.3
+       { "generator": "sheets" }                       // 5 заданий блока «Листы» (в 5-м случайный тип)
+       { "generator": "sheets", "parts": [1, 3] }      // только задания 1 и 3
+       // номера в parts: 1, 2, 3, 4, а у пятого задания два типа:
+       //   5.1 — масса пачки,  5.2 — размер шрифта на другом формате,
+       //   5   — любой из двух (выбирается случайно)
+       { "generator": "sheets", "parts": [5.1] }
+       { "generator": "sheets", "parts": [5.2], "count": 4 }
        { "generator": "sheets", "seed": "TEST1" }      // зафиксированный вариант (для проверки)
  
        // сколько раз показать набор ("count"); набор из 1.1 и 1.3 покажется 6 раз: 1,3,1,3,...
@@ -305,6 +310,36 @@
             v.den5 = Math.pow(2, c.n);
             v.answer5 = (c.N * c.w) / Math.pow(2, c.n);
  
+            // ---- 1.5 (тип 2): размер шрифта на листе другого формата ----
+            // Соседние форматы отличаются в 1,4 раза (1,4 = 7/5), через один формат — в 1,4·1,4 = 1,96.
+            // Считаем дробью num/den, чтобы не было ошибок округления.
+            const fontCombos = [];
+            for (let from = 1; from <= 6; from++) {
+                [-2, -1, 1, 2].forEach(function (shift) {
+                    const to = from + shift;
+                    if (to < 1 || to > 6) return;
+                    [12, 14, 16, 18, 20, 22, 24, 28, 30, 32, 36, 40].forEach(function (size) {
+                        const k = Math.abs(shift);
+                        const bigger = to < from;          // меньшее число в названии = лист больше
+                        const num = size * Math.pow(bigger ? 7 : 5, k);
+                        const den = Math.pow(bigger ? 5 : 7, k);
+                        if (Math.abs((num / den) % 1 - 0.5) < 0.06) return;   // без «почти .5»
+                        fontCombos.push({ from: from, to: to, size: size, k: k, bigger: bigger, num: num, den: den });
+                    });
+                });
+            }
+            const fc = rnd.pick(fontCombos);
+            fc.answer = Math.round(fc.num / fc.den);
+            fc.exact = fc.num % fc.den === 0;
+            v.fontFrom = A(fc.from);
+            v.fontTo = A(fc.to);
+            v.fontPt = fc.size;
+            v.fontPtWord = plural(fc.size, 'пункт', 'пункта', 'пунктов');
+            v.answer5b = fc.answer;
+ 
+            // Какой тип пятого задания показывать, если в parts написано просто 5 (или parts нет)
+            v.variant5 = rnd.pick(['5.1', '5.2']);
+ 
  
             /* ---------------------------------------------------
                Объяснения. Задания 1.1, 1.3, 1.4, 1.5 — одно объяснение, которое подстраивается
@@ -412,6 +447,28 @@
                 'Остаётся только умножить массу листа ' + A(c.n) + ' на количество этих листов в пачке:<br>' + ruNum(massLast) + ' × ' + c.N + ' = ' + v.answer5
             ];
  
+            // ---- 1.5 (тип 2) ----
+            const factorText = fc.k === 1 ? '1,4' : '1,96';
+            const operation = fc.bigger ? '×' : '÷';
+            const exactValue = fc.num / fc.den;
+            const calcShown = fc.exact
+                ? fc.size + operation + factorText + '=' + exactValue
+                : fc.size + operation + factorText + '=' + ruNum(Math.floor(fc.num * 10 / fc.den) / 10) + '...';
+            const ptWord = plural(fc.size, 'пункт', 'пункта', 'пунктов');
+            v.explain5b = ['Соседние форматы отличаются друг от друга по длине и ширине в 1,4 раза.'];
+            if (fc.k === 2) {
+                v.explain5b.push('Форматы ' + A(fc.from) + ' и ' + A(fc.to) + ' разделяет ещё один формат (' + A((fc.from + fc.to) / 2) +
+                    '), поэтому разница между ними — 1,4 · 1,4 = 1,96 раза.');
+            }
+            v.explain5b.push(fc.bigger
+                ? 'Лист ' + A(fc.to) + ' больше листа ' + A(fc.from) + '.'
+                : 'Лист ' + A(fc.to) + ' меньше листа ' + A(fc.from) + '.');
+            v.explain5b.push('Чтобы найти, сколько пунктов будет текст на листе ' + A(fc.to) + ', если на ' + A(fc.from) + ' он ' +
+                fc.size + ' ' + ptWord + ', нам нужно ' + (fc.bigger ? 'умножить ' : 'разделить ') + fc.size + ' на ' + factorText + ':<br>' + calcShown);
+            v.explain5b.push(fc.exact
+                ? 'Получилось целое число, поэтому округлять не нужно. Записываем ' + fc.answer + ' в ответ.'
+                : 'Осталось только округлить ответ до целого. Получается ' + fc.answer + '.');
+ 
             return v;
         },
  
@@ -423,7 +480,7 @@
                 isOge: true,
                 graph1: SHEETS_GRAPH,
                 text1: '{{intro}}',
-                text2: '<b>1</b> В таблице даны размеры (с точностью до мм) четырёх листов, имеющих форматы {{formatsText}}.',
+                text2: '<b>1.</b> В таблице даны размеры (с точностью до мм) четырёх листов, имеющих форматы {{formatsText}}.',
                 table1: '{{table11}}',
                 text3: 'Установите соответствие между форматами и номерами листов. В ответ запишите последовательность четырёх цифр, соответствующих номерам листов, без пробелов, запятых и дополнительных символов.',
                 table2: '{{matchTable}}',
@@ -434,7 +491,7 @@
                 type: 'input',
                 isOge: true,
                 graph1: SHEETS_GRAPH,
-                text2: '<b>2</b> Сколько листов формата {{fk}} получится из одного листа формата {{fm}}?',
+                text2: '<b>2.</b> Сколько листов формата {{fk}} получится из одного листа формата {{fm}}?',
                 correctAnswer: '{{answer2}}',
                 explanationFields: '{{explain2}}'
             },
@@ -444,7 +501,7 @@
                 graph1: SHEETS_GRAPH,
                 text2: 'Известны размеры (с точностью до мм) листов нескольких форматов:',
                 table1: '{{table13}}',
-                text3: '<b>3</b> Найдите {{sideAcc}} листа бумаги формата {{fn3}}. Ответ дайте в миллиметрах и округлите до ближайшего целого числа, кратного 10.',
+                text3: '<b>3.</b> Найдите {{sideAcc}} листа бумаги формата {{fn3}}. Ответ дайте в миллиметрах и округлите до ближайшего целого числа, кратного 10.',
                 correctAnswer: '{{answer3}}',
                 explanationFields: '{{explain3}}'
             },
@@ -452,7 +509,7 @@
                 type: 'input',
                 isOge: true,
                 graph1: SHEETS_GRAPH,
-                text2: '<b>4</b> Найдите площадь листа формата {{fn4}}. Ответ дайте в квадратных сантиметрах.',
+                text2: '<b>4.</b> Найдите площадь листа формата {{fn4}}. Ответ дайте в квадратных сантиметрах.',
                 correctAnswer: '{{answer4}}',
                 explanationFields: '{{explain4}}'
             },
@@ -460,11 +517,23 @@
                 type: 'input',
                 isOge: true,
                 graph1: SHEETS_GRAPH,
-                text2: '<b>5</b> Бумагу формата {{fn5}} упаковали в пачки по {{sheets5}} листов. Найдите массу пачки, если масса бумаги площадью 1 кв. м равна {{weight5}} г. Ответ дайте в граммах.',
+                text2: '<b>5.</b> Бумагу формата {{fn5}} упаковали в пачки по {{sheets5}} листов. Найдите массу пачки, если масса бумаги площадью 1 кв. м равна {{weight5}} г. Ответ дайте в граммах.',
                 correctAnswer: '{{answer5}}',
                 explanationFields: '{{explain5}}'
+            },
+            { // ---------- 1.5, тип 2 ----------
+                type: 'input',
+                isOge: true,
+                graph1: SHEETS_GRAPH,
+                text2: '<b>5.</b> Размер (высота) типографического шрифта измеряется в пунктах. Один пункт равен 1/72 дюйма, то есть 0,3528 мм. Какой высоты нужен шрифт (в пунктах), чтобы текст был расположен на листе формата {{fontTo}} так же, как этот же текст, напечатанный шрифтом высотой {{fontPt}} {{fontPtWord}} на листе формата {{fontFrom}}? Размер шрифта округляется до целого.',
+                correctAnswer: '{{answer5b}}',
+                explanationFields: '{{explain5b}}'
             }
-        ]
+        ],
+ 
+        // Номера заданий (для "parts" в JSON), по порядку шаблонов выше.
+        // Задание 5 бывает двух типов: 5.1 и 5.2; запись "5" означает «любой из двух».
+        taskIds: ['1', '2', '3', '4', '5.1', '5.2']
     };
  
     global.OGE_GENERATORS = OGE_GENERATORS;
@@ -475,7 +544,7 @@
  
     // Собирает один блок: возвращает массив готовых заданий.
     //   opts.seed  — сид (если не указан — случайный)
-    //   opts.parts — какие задания блока взять, например [1, 3] (нумерация с 1)
+    //   opts.parts — какие задания блока взять, например [1, 3, 5.2] (см. taskIds)
     //   opts.salt  — добавка к сиду, чтобы повторы одного блока отличались друг от друга
     // В каждом задании лежит task.ogeSeed — код варианта для жалоб.
     function generateOgeBlock(name, opts) {
@@ -486,8 +555,15 @@
         const rngSeed = opts.salt === undefined ? code : code + ':' + opts.salt;
         const vars = def.scenario(makeRng(rngSeed));
         const result = [];
+        // Какие задания брать: parts вида [1, 3, 5.1]; без parts — 1, 2, 3, 4 и один тип пятого
+        const wanted = Array.isArray(opts.parts)
+            ? opts.parts.map(function (x) { return String(x).trim(); })
+            : ['1', '2', '3', '4', '5'];
         def.tasks.forEach(function (template, i) {
-            if (Array.isArray(opts.parts) && opts.parts.indexOf(i + 1) === -1) return;
+            const id = def.taskIds[i];
+            const picked = wanted.indexOf(id) !== -1 ||
+                (wanted.indexOf('5') !== -1 && (id === '5.1' || id === '5.2') && id === vars.variant5);
+            if (!picked) return;
             const task = fill(template, vars);
             task.ogeSeed = code;
             result.push(task);
@@ -586,7 +662,7 @@
         tasks.forEach(function (entry) {
             if (entry && typeof entry.generator === 'string' && OGE_GENERATORS[entry.generator]) {
                 entrySets(entry).forEach(function (set) {
-                    const per = Array.isArray(set.parts) ? set.parts.length : OGE_GENERATORS[entry.generator].tasks.length;
+                    const per = Array.isArray(set.parts) ? set.parts.length : 5;
                     n += per * repeatCount(set);
                 });
             } else {
