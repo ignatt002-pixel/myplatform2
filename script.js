@@ -34,8 +34,14 @@ function onFirebaseReady(callback) {
         // база уроков
         // ===================================================
         const TOPIC_URLS = [
-  "https://raw.githubusercontent.com/ignatt002/blait/refs/heads/main/1-5-sheets.json",
-  "https://cdn.jsdelivr.net/gh/ignatt002/blait@main/6-zadanie.json",
+[
+"https://raw.githubusercontent.com/ignatt002/blait/refs/heads/main/1-5-zadania.json",
+  
+"https://raw.githubusercontent.com/ignatt002/blait/refs/heads/main/1-5-sheets.json",
+
+"https://raw.githubusercontent.com/ignatt002/blait/refs/heads/main/1-5-plans.json"
+],
+"https://cdn.jsdelivr.net/gh/ignatt002/blait@main/6-zadanie.json",
   "https://raw.githubusercontent.com/ignatt002/blait/refs/heads/main/7-zadanie.json",
   "https://cdn.jsdelivr.net/gh/ignatt002/blait@main/8-zadanie.json",
   "https://cdn.jsdelivr.net/gh/ignatt002/blait@main/9-zadanie",
@@ -67,7 +73,7 @@ function onFirebaseReady(callback) {
                 if (data.topic) {
                     let topicCopy = JSON.parse(JSON.stringify(data.topic));
                     topicCopy.baseId = data.topic.id;
-topicCopy.sourceUrl = TOPIC_URLS[index];
+            topicCopy.sourceUrl = topicMainUrl(TOPIC_URLS[index]);
                     topicCopy.id = topicCopy.id + '-' + index;
                     COURSE_DATA.topics.push(topicCopy);
                 }
@@ -107,15 +113,55 @@ topicCopy.sourceUrl = TOPIC_URLS[index];
             cheatSheetsConfig.length = 0;
         }
 
+        // Главная ссылка темы: для обычной темы — сама строка, для вложенной — первая в массиве
+        function topicMainUrl(entry) { return Array.isArray(entry) ? entry[0] : entry; }
+
+        async function fetchJsonUrl(url) {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+            return res.json();
+        }
+
+        // Вливает файлы-варианты в главную тему: их подтемы дописываются в конец подтем главной,
+        // их уроки добавляются к урокам. Название и цвет темы берутся только из главного файла.
+        function mergeExtraTopics(main, extras) {
+            if (!main.topic) main.topic = {};
+            if (!Array.isArray(main.topic.subtopics)) main.topic.subtopics = [];
+            if (!main.lessons) main.lessons = {};
+            extras.forEach(function (extra) {
+                if (!extra) return;
+                if (extra.topic && Array.isArray(extra.topic.subtopics)) {
+                    main.topic.subtopics = main.topic.subtopics.concat(extra.topic.subtopics);
+                }
+                if (extra.lessons) {
+                    Object.keys(extra.lessons).forEach(function (id) {
+                        if (id in main.lessons) console.warn('Урок «' + id + '» уже есть в теме и будет заменён.');
+                    });
+                    Object.assign(main.lessons, extra.lessons);
+                }
+                if (Array.isArray(extra.cheatSheets)) main.cheatSheets = (main.cheatSheets || []).concat(extra.cheatSheets);
+            });
+            return main;
+        }
+
+        // Скачивает одну запись списка тем: строку или массив «главная + варианты»
+        async function fetchTopicEntry(entry) {
+            if (!Array.isArray(entry)) return fetchJsonUrl(entry);
+            const main = await fetchJsonUrl(entry[0]);
+            const extras = await Promise.allSettled(entry.slice(1).map(fetchJsonUrl));
+            return mergeExtraTopics(main, extras.map(function (r, i) {
+                if (r.status === 'fulfilled') return r.value;
+                console.warn('Не загрузился файл варианта ' + entry[i + 1] + ':', r.reason);
+                return null;
+            }));
+        }
+
         // Скачивает свежие темы/шпаргалки с сети. При успехе — кладёт "сырые" данные
         // в localStorage на СЛЕДУЮЩИЙ запуск (текущую сессию это не трогает).
         // renderIfDone === true — также отрисовать результат сейчас (когда кеша не было
         // вообще и ждать пришлось по-честному, как раньше).
         async function fetchAndCacheCourseData(renderIfDone) {
-            const fetchPromises = TOPIC_URLS.map(url => fetch(url).then(res => {
-                if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-                return res.json();
-            }));
+            const fetchPromises = TOPIC_URLS.map(entry => fetchTopicEntry(entry));
             const csPromises = CHEAT_SHEET_URLS.map(url => fetch(url).then(res => {
                 if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
                 return res.json();
