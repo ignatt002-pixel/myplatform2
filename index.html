@@ -16,7 +16,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800;900&display=swap" rel="stylesheet">
     
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
-
+ 
     <!-- MathJax для математики -->
     <script>
         window.MathJax = {
@@ -26,7 +26,7 @@
     </script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/mathlive@0.110.0"></script>
-
+ 
     <!-- Yandex.Metrika counter -->
 <script type="text/javascript">
     (function(m,e,t,r,i,k,a){
@@ -35,22 +35,22 @@
         for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
         k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
     })(window, document,'script','https://mc.yandex.ru/metrika/tag.js?id=113574674', 'ym');
-
+ 
     ym(113574674, 'init', {ssr:true, webvisor:true, clickmap:true, ecommerce:"dataLayer", referrer: document.referrer, url: location.href, accurateTrackBounce:true, trackLinks:true});
 </script>
 <noscript><div><img src="https://mc.yandex.ru/watch/113574674" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
 <!-- /Yandex.Metrika counter -->
 </head>
 <body>
-
+ 
     <!-- Окно входа/регистрации -->
 <div id="auth-overlay" class="modal-overlay hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 5000; display: flex; align-items: center; justify-content: center;">
   <div style="background: white; border-radius: 16px; padding: 24px; width: 90%; max-width: 340px; position: relative;">
     <button id="auth-close-btn" class="close-lesson-btn" style="position: absolute; top: 20px; right: 22px; background: none; border: none; padding: 4px; cursor: pointer; font-size: 32px; line-height: 1;">&times;</button>
     <h2 id="auth-title" style="margin: 0 0 16px 0;">Вход</h2>
-
+ 
     <input id="auth-email" type="email" placeholder="Email" class="auth-input">
-
+ 
 <div class="auth-input-group">
   <input id="auth-password" type="password" placeholder="Пароль" class="auth-input">
   <button type="button" id="auth-toggle-password" class="auth-toggle-eye">
@@ -76,7 +76,7 @@
   <div id="login-turnstile-widget-container"></div>
       </div>
     <div id="auth-error" style="color: #ff4b4b; font-size: 14px; margin-bottom: 10px; display: none;"></div>
-
+ 
     <button id="auth-submit-btn" class="auth-btn-primary" style="margin-bottom: 10px;">
   <span class="auth-btn-text">Войти</span>
   <div class="btn-loader-dots">
@@ -85,11 +85,11 @@
     <span class="btn-loader-dot"></span>
   </div>
     </button>
-
+ 
     <div id="auth-toggle" style="text-align: center; color: #1CB0F6; cursor: pointer; font-size: 14px;">Нет аккаунта? Зарегистрироваться</div>
   </div>
 </div>
-
+ 
 <!-- Кнопка входа + флажок (плавающая, поверх интерфейса) -->
 <div id="app-download-btn-group" style="position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); left: 12px; z-index: 100; display: flex; align-items: stretch; background: white; border: 2px solid #e5e5e5; border-radius: 20px; overflow: hidden;">
     <button type="button" id="app-download-btn" onclick="document.getElementById('app-promo-modal-overlay').classList.remove('hidden'); document.getElementById('bottom-nav').classList.add('nav-hidden');" style="background: white; border: none; padding: 8px 16px; font-weight: 700; cursor: pointer; font-family: 'Nunito', sans-serif; color: #afafaf;">Приложение</button>
@@ -98,7 +98,7 @@
     if (window.AndroidNative && typeof window.AndroidNative.getAppVersion === 'function') {
         // сразу прячем — мы точно внутри приложения, по умолчанию кнопка не нужна
         document.getElementById('app-download-btn-group').style.display = 'none';
-
+ 
         const currentVersion = String(window.AndroidNative.getAppVersion());
         fetch('https://fivecore-web.github.io/app-version.json')
             .then(res => res.json())
@@ -138,14 +138,14 @@
             <button type="button" class="repetition-setup-start" id="rep-setup-start" onclick="confirmRepetitionSetup()">Начать</button>
         </div>
     </div>
-
+ 
     <!-- Попап урока -->
     <div id="lesson-popup" class="popup-hidden">
         <div class="lesson-popup-title" id="lesson-popup-title">Тема урока</div>
         <div class="lesson-popup-tasks" id="lesson-popup-tasks">5 заданий</div>
         <button class="lesson-popup-start" id="lesson-popup-start">Начать</button>
     </div>
-
+ 
     <!-- МЕНЮ -->
     <div id="menu-view">
         <div class="menu-container">
@@ -261,7 +261,7 @@
             </div>
         </div>
     </div>
-
+ 
     <nav id="bottom-nav" class="bottom-nav">
         <button type="button" class="bottom-nav-btn bottom-nav-btn-home active" id="nav-home" onclick="navigateToMenuTab('topics')" aria-label="Темы">
             <span class="bottom-nav-home-ring">
@@ -293,7 +293,7 @@
             </span>
         </button>
     </nav>
-
+ 
     <!-- ОКНО УРОКА -->
     <div id="lesson-view" class="hidden">
         
@@ -313,7 +313,7 @@
 </svg>
 </button>
         </div>
-
+ 
         <header class="lesson-header">
             <div class="close-lesson-btn" onclick="confirmCloseLesson()">✕</div>
             <div class="lesson-progress-bar-wrap" id="l-progress-wrap">
@@ -336,13 +336,13 @@
                 <button class="lesson-dropdown-report" onclick="showReportModal()">Сообщить об ошибке</button>
             </div>
         </header>
-
+ 
         <div id="generator-controls" style="display: none; background: #f9f9f9; padding: 6px 18px 6px 8px; justify-content: center; align-items: center; gap: 15px; border-bottom: 1px solid #eee; box-shadow: 0 2px 10px rgba(0,0,0,0.02);">
             <label for="chaos-level" style="font-weight: 800; color: #4b4b4b; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">Хаотичность:</label>
             <input type="number" id="chaos-level" value="2" min="1" max="10" style="width: 60px; border-radius: 12px; border: 2px solid #e5e5e5; padding: 8px; text-align: center; font-weight: 800; font-size: 16px; color: #4b4b4b; outline: none;">
             <button onclick="regenerateTasks()" style="background: var(--lesson-accent); color: white; border: none; border-radius: 12px; padding: 8px 16px; cursor: pointer; font-weight: 800; font-size: 14px; transition: transform 0.2s;">Обновить</button>
         </div>
-
+ 
         <main class="lesson-main" id="l-main">
             <h1 class="lesson-title" id="l-title"></h1>
             <div class="character-row bounce-in delay-1" id="l-character-row">
@@ -419,7 +419,7 @@
                 <div class="details-bank" id="l-details-bank"></div>
             </div>
         </main>
-
+ 
         <footer class="lesson-footer" id="l-footer">
             <div class="footer-content">
                 <div class="feedback-area" id="l-feedback-area">
@@ -467,7 +467,7 @@
             </div>
         </footer>
     </div>
-
+ 
     <!-- ОКНО ТЕОРИИ ТЕМЫ -->
     <div id="theory-view" class="theory-view">
         <div class="theory-content-wrapper">
@@ -495,7 +495,7 @@
             </footer>
         </div>
     </div>
-
+ 
     <!-- Модальное окно подтверждения (Аккаунт) -->
     <div id="confirm-modal" class="modal-backdrop-v2 hidden">
         <div class="modal-card-v2">
@@ -508,7 +508,7 @@
             </div>
         </div>
     </div>
-
+ 
     <!-- Всплывающий тост -->
     <div id="toast" class="toast hidden">
     <svg width="40" height="40" viewBox="0 0 100 100" fill="none">
@@ -517,7 +517,7 @@
     </svg>
     <span id="toast-message"></span>
 </div>
-
+ 
     <!-- Математическая клавиатура -->
     <div id="math-keyboard">
 <div class="math-keyboard-grid">
@@ -528,7 +528,7 @@
             <button class="math-key" onmousedown="event.preventDefault()" onclick="handleKeyClick(event, '+')">+</button>
             <button class="math-key" onmousedown="event.preventDefault()" onclick="handleKeyClick(event, '-')">-</button>
             <button class="math-key action-key" onmousedown="event.preventDefault()" onclick="handleKeyClick(event, 'Backspace')">⌫</button>
-
+ 
             <!-- Ряд 2 -->
             <button class="math-key" onmousedown="event.preventDefault()" onclick="handleKeyClick(event, '4')">4</button>
             <button class="math-key" onmousedown="event.preventDefault()" onclick="handleKeyClick(event, '5')">5</button>
@@ -541,7 +541,7 @@
                     <span class="den">y</span>
                 </div>
             </button>
-
+ 
             <!-- Ряд 3 -->
             <button class="math-key" onmousedown="event.preventDefault()" onclick="handleKeyClick(event, '7')">7</button>
             <button class="math-key" onmousedown="event.preventDefault()" onclick="handleKeyClick(event, '8')">8</button>
@@ -549,7 +549,7 @@
             <button class="math-key has-popup" data-base="=" data-popup="≈,≠" data-hint="≈ ≠" onmousedown="event.preventDefault()" onclick="handleKeyClick(event, '=')">=</button>
             <button class="math-key has-popup" data-base="<" data-popup="≤" data-hint="≤" onmousedown="event.preventDefault()" onclick="handleKeyClick(event, '<')">&lt;</button>
             <button class="math-key has-popup" data-base=">" data-popup="≥" data-hint="≥" onmousedown="event.preventDefault()" onclick="handleKeyClick(event, '>')">&gt;</button>
-
+ 
             <!-- Ряд 4 -->
             <button class="math-key" onmousedown="event.preventDefault()" onclick="handleKeyClick(event, '0')">0</button>
             <button class="math-key" onmousedown="event.preventDefault()" onclick="handleKeyClick(event, '.')">,</button>
@@ -557,7 +557,7 @@
             <button class="math-key" onmousedown="event.preventDefault()" onclick="handleKeyClick(event, 'y')">y</button>
             <button class="math-key action-key" onmousedown="event.preventDefault()" onclick="handleKeyClick(event, 'Left')">←</button>
             <button class="math-key action-key" onmousedown="event.preventDefault()" onclick="handleKeyClick(event, 'Right')">→</button>
-
+ 
             <!-- Ряд 5 -->
             <button class="math-key has-popup" data-base="(" data-popup="[" data-hint="[" onmousedown="event.preventDefault()" onclick="handleKeyClick(event, '(')">(</button>
             <button class="math-key has-popup" data-base=")" data-popup="]" data-hint="]" onmousedown="event.preventDefault()" onclick="handleKeyClick(event, ')')">)</button>
@@ -565,7 +565,7 @@
             <button class="math-key" onmousedown="event.preventDefault()" onclick="handleKeyClick(event, '^')">xⁿ</button>
             <button class="math-key" onmousedown="event.preventDefault()" onclick="handleKeyClick(event, '∞')">∞</button>
             <button class="math-key action-key" onmousedown="event.preventDefault()" onclick="handleKeyClick(event, 'Enter')">↵</button>
-
+ 
             <!-- Ряд 6 (тут теперь обычная скобка { ) -->
             <button class="math-key" onmousedown="event.preventDefault()" onclick="handleKeyClick(event, 'f(x)')">f(x)</button>
             <button class="math-key" onmousedown="event.preventDefault()" onclick="handleKeyClick(event, '±')">±</button>
@@ -573,14 +573,14 @@
             <button class="math-key" onmousedown="event.preventDefault()" onclick="handleKeyClick(event, '|')">|</button>
             <button class="math-key" onmousedown="event.preventDefault()" onclick="handleKeyClick(event, '_')">xᵢ</button>
             <button class="math-key" onmousedown="event.preventDefault()" onclick="handleKeyClick(event, '{')">{</button>
-
+ 
             <!-- Ряд 7 (сюда я перенес точку с запятой) -->
             <button class="math-key has-popup" data-base="∈" data-popup="∪,∩" data-hint="∪ ∩" onmousedown="event.preventDefault()" onclick="handleKeyClick(event, '∈')">∈</button>
             <button class="math-key" onmousedown="event.preventDefault()" onclick="handleKeyClick(event, ';')">;</button>
             <button class="math-key action-key" style="grid-column: span 4;" onmousedown="event.preventDefault()" onclick="closeMathKeyboard()">Готово</button>
 </div>
     </div>
-
+ 
     <!-- Модальные окна -->
 <div class="modal-overlay hidden" id="app-promo-modal-overlay" onclick="this.classList.add('hidden'); document.getElementById('bottom-nav').classList.remove('nav-hidden');" style="touch-action: none;">
         <div class="report-modal" onclick="event.stopPropagation()" style="text-align: left; width: 85%; max-width: 360px;">
@@ -656,7 +656,7 @@
         </div>
     </div>
 </div>
-
+ 
     <div id="completion-modal-overlay" class="hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 3000; display: flex; flex-direction: column; justify-content: center; align-items: center; opacity: 0; transition: opacity 0.3s ease; padding: 20px; box-sizing: border-box;">
         <div id="completion-modal-content" style="width: 100%; max-width: 400px; text-align: center; transform: scale(0.9); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; flex-direction: column; gap: 30px;">
             <div>
@@ -682,7 +682,7 @@
             </button>
         </div>
     </div>
-
+ 
 <div id="daily-quests-overlay" class="hidden">
     <div id="daily-quests-content">
         <h2 style="text-align:center; font-family:'Nunito',sans-serif; font-weight:800; color:#3c3c3c; margin: 0 0 8px 0; font-size: 24px;">Ежедневные задания</h2>
@@ -692,9 +692,9 @@
         </button>
     </div>
 </div>
-
+ 
 <div id="exit-confirm-overlay" class="hidden"
-
+ 
 style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 4000; display: flex; flex-direction: column; justify-content: flex-end; opacity: 0; transition: opacity 0.3s ease;">
         <div id="exit-confirm-content" style="background: white; border-top-left-radius: 24px; border-top-right-radius: 24px; padding: 30px 20px 60px 20px; margin-bottom: -30px; width: 100%; box-sizing: border-box; text-align: center; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; flex-direction: column; gap: 20px;">
             <h2 style="font-size: 24px; font-weight: 800; color: #4b4b4b; margin: 0;">Хотите закончить урок?</h2>
@@ -708,13 +708,13 @@ style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: 
             </div>
         </div>
     </div>
-
+ 
     <!-- Подключение Firebase -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js";
   import { getAuth } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js";
   import { getFirestore } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js";
-
+ 
   const firebaseConfig = {
     apiKey: "AIzaSyAU-9Y74bwJ5IhjKlbOCP-9jp32lRyNF_g",
     authDomain: "fivecore-767b8.firebaseapp.com",
@@ -723,25 +723,26 @@ style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: 
     messagingSenderId: "792235933811",
     appId: "1:792235933811:web:460349403e3182ad2d6a06"
   };
-
+ 
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = getFirestore(app);
-
+ 
   window.firebaseAuth = auth;
 window.firebaseDb = db;
 window.firebaseReady = true;
-
+ 
 // Сигнал остальному коду, что Firebase готов
 window.dispatchEvent(new Event("firebase-ready"));
 </script>
-
+ 
     <!-- Рисование в черновике -->
     <script src="draft-canvas.js" defer></script>
-
+ 
     <!-- Вот тут подключаем твой файл с логикой -->
     <script src="task-generator.js" defer></script>
-        <script src="oge-1-5-generator.js" defer></script>
+    <script src="oge-1-5-generator.js" defer></script>
+    <script src="oge-sheets.js" defer></script>
     <script src="script.js" defer></script>
 </body>
 </html>
