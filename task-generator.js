@@ -85,6 +85,7 @@ function restoreLatex(s, store) {
 function isSafeLatexPiece(text) {
     const t = String(text);
     if (/[\^_]\s*$/.test(t) || /\\\s*$/.test(t)) return false;
+    if (/<[A-Za-z\/!?]/.test(t)) return false;   // деталь вставляется через innerHTML: "<x" стало бы тегом и пропало
     let depth = 0;
     for (const ch of t) {
         if (ch === '{') depth++;
@@ -509,7 +510,7 @@ function compactTokensForDetails(tokens) {
         let merged = false;
 
         for (let i = 0; i < result.length; i++) {
-            if (result[i].type !== 'symbol') continue;
+            if (result[i].type !== 'symbol' || result[i].value === '<' || result[i].value === '>') continue;
             if (result[i + 1] && result[i + 1].type === 'text') {
                 result[i + 1] = { type: 'text', value: result[i].value + result[i + 1].value };
                 result.splice(i, 1);
@@ -538,7 +539,12 @@ function compactTokensForDetails(tokens) {
 }
 
 function getDetailsTokens(correctAnswer) {
-    const rootSplitTokens = splitRootTokensForDetails(tokenizeAnswer(correctAnswer, true));
+    // Пробелы по краям текстовых кусков убираем, а куски из одних пробелов выбрасываем: иначе в банке
+    // появляются «пустые» детали (например, пробел вокруг знака > в "x > 2"), которые ученик не видит
+    // и не нажимает, — и верно собранный на вид ответ считается неправильным
+    const trimmedTokens = tokenizeAnswer(correctAnswer, true)
+        .map(t => (t.type === 'text' ? Object.assign({}, t, { value: t.value.trim() }) : t));
+    const rootSplitTokens = splitRootTokensForDetails(trimmedTokens);
     const isAlone = rootSplitTokens.filter(meaningfulDetailsFilter).length === 1;
     let tokens = (isAlone ? expandNumbersForDetails(rootSplitTokens) : rootSplitTokens)
         .filter(meaningfulDetailsFilter);
@@ -841,4 +847,4 @@ function autoGenerateLesson(tasks) {
     planLessonTypes(tasks);
     forceConvertNotInputTasks(tasks);
     return tasks;
-            }
+}
