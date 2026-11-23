@@ -20,6 +20,11 @@
        dashed_line.r.width2.marked: — гигабайты (пунктир)
    Точка записывается «месяц;Y». Шкалы:   минуты = Y · 25,   гигабайты = Y / 4.
    (Y = 2 это 50 мин. и 0,5 ГБ; Y = 16 это 400 мин. и 4 ГБ.)
+   ПАКЕТ ТАРИФА И ЛИНИЯ ЛИМИТА. Минуты и гигабайты пакета всегда лежат на одной высоте графика
+   (300 мин. и 3 ГБ, 250 мин. и 2,5 ГБ и т. д.: пакет минут = пакет ГБ · 100), поэтому тариф
+   показывает одна горизонтальная линия:  line.c.width2: 0;Y 13;Y   (Y = пакет ГБ · 4 = пакет минут / 25).
+   Она добавляется перед линиями данных, чтобы точки рисовались поверх неё.
+   В одном ряду соседние точки никогда не стоят на одной высоте.
    ВАЖНО: ответы считаются из тех же двенадцати чисел Y (ymin и ygb), из которых
    строятся две строки графика. Поэтому график и ответ разойтись не могут.
    =================================================== */
@@ -87,15 +92,15 @@
        Линия идёт кусками: пару-тройку месяцев вверх, потом вниз, и так далее.
        Шаги в основном чётные (2, 4), потом в 2–4 месяцах добавляется ±1, чтобы были и нечётные Y.
        --------------------------------------------------- */
-    function makeSeries(rnd) {
+    function makeSeries(rnd, lim) {
         for (let t = 0; t < 60; t++) {
-            const y = [rnd.int(3, 6) * 2];                   // старт — чётное число 6…12
+            const y = [Math.max(4, Math.min(Y_MAX, lim + rnd.pick([-4, -2, 0, 2])))];   // старт рядом с линией лимита (чётное число)
             let dir = rnd.pick([-1, 1]);
             while (y.length < 12) {
                 const len = rnd.int(2, 4);                   // сколько месяцев тянем в одну сторону
                 for (let j = 0; j < len && y.length < 12; j++) {
                     const last = y[y.length - 1];
-                    const step = dir * rnd.pick([0, 2, 2, 2, 4]);
+                    const step = dir * rnd.pick([2, 2, 2, 4]);
                     let next = last + step;
                     if (next < Y_MIN || next > Y_MAX) next = last - step;   // уткнулись в край — разворачиваем
                     y.push(next);
@@ -119,6 +124,7 @@
         let turns = 0, prev = 0;
         for (let i = 1; i < y.length; i++) {
             const d = y[i] - y[i - 1];
+            if (d === 0) return false;                                                  // соседние точки на разной высоте
             if (Math.abs(d) > 5) return false;                                          // без резких скачков
             const s = Math.sign(d);
             if (s !== 0) { if (prev !== 0 && s !== prev) turns++; prev = s; }
@@ -132,24 +138,24 @@
        sep — на сколько клеток минимум должны отличаться две точки одного месяца
        (чтобы кружки сплошной и пунктирной линий не лежали друг на друге).
        --------------------------------------------------- */
-    function drawData(rnd, sep) {
+    function drawData(rnd, sep, pg) {
         const d = {
             name: rnd.pick(TARIFF_NAMES),
             year: rnd.int(2019, 2024),
             fee: rnd.pick([300, 350, 400, 450, 500]),
-            pm: rnd.pick([250, 300, 350]),                // минут в пакете
-            pg: rnd.pick([2, 2.5, 3, 3.5]),               // ГБ в пакете
+            pg: pg,                                       // ГБ в пакете (выбран заранее, чтобы пакеты выпадали поровну)
             sms: rnd.pick([100, 120, 150]),
             priceMin: rnd.pick([2, 3, 4]),
             priceGb: rnd.pick([60, 80, 90, 100, 120]),    // за каждые 0,5 ГБ
             priceSms: rnd.pick([1, 2, 3])
         };
+        d.pm = d.pg * 100;                                // минут в пакете: на графике это та же высота, что и пакет ГБ
         d.smsSent = d.sms - 5 * rnd.int(1, 4);            // за ВСЁ время меньше пакета в месяц, доплаты за СМС нет
-        d.ymin = makeSeries(rnd);
-        d.ygb = makeSeries(rnd);
+        d.ymin = makeSeries(rnd, pg * 4);
+        d.ygb = makeSeries(rnd, pg * 4);
         if (!d.ymin || !d.ygb) return null;
  
-        const limMin = d.pm / 25, limGb = d.pg * 4;       // лимиты в клетках графика
+        const limMin = d.pm / 25, limGb = d.pg * 4;       // лимиты в клетках графика (всегда равны)
         d.limMin = limMin; d.limGb = limGb;
         for (let i = 0; i < 12; i++) {
             if (Math.abs(d.ymin[i] - d.ygb[i]) < sep) return null;
@@ -161,7 +167,11 @@
             if (y > limGb) d.over.push(i + 1);
             else if (y === limGb) d.equal.push(i + 1);
         });
-        if (d.over.length < 3 || d.over.length > 8) return null;
+        // у высокого лимита (3,5 ГБ) над линией мало места, поэтому достаточно двух месяцев
+        if (d.over.length < (limGb >= 14 ? 2 : 3) || d.over.length > 8) return null;
+        // минуты тоже должны пересекать линию лимита (и не всё время сидеть выше или ниже неё)
+        const minOver = d.ymin.filter(function (y) { return y > limMin; }).length;
+        if (minOver < 2 || minOver > 10) return null;
  
         // 1.1: нужны хотя бы 4 месяца, у которых значение гигабайтов встречается в году только один раз
         d.uniq = [];
@@ -194,9 +204,10 @@
  
         scenario: function (rnd) {
             // Подбираем данные, пока не получится набор, из которого выходят все четыре задания.
+            const pg = rnd.pick([2, 2.5, 3, 3.5]);                   // пакет выбираем один раз: так все четыре тарифа выпадают поровну
             let d = null;
             for (let attempt = 0; attempt < 4000 && !d; attempt++) {
-                d = drawData(rnd, attempt < 2000 ? 2 : 0);
+                d = drawData(rnd, attempt < 2000 ? 2 : 0, pg);
             }
             if (!d) throw new Error('OGE tariffs: не удалось подобрать данные');
  
@@ -205,7 +216,9 @@
  
             // ---- график: шаблон + две строки по 12 точек ----
             const pts = function (ys) { return ys.map(function (y, i) { return (i + 1) + ';' + y; }).join(' '); };
+            v.limY = d.limGb;
             v.graph = TARIFF_GRAPH_BASE.concat([
+                'line.c.width2: 0;' + d.limGb + ' 13;' + d.limGb,            // линия тарифа: пакет минут и пакет ГБ
                 'line.49bff7.width2.marked: ' + pts(d.ymin),
                 'dashed_line.r.width2.marked: ' + pts(d.ygb)
             ]);
@@ -276,6 +289,7 @@
             v.month2 = MONTH_PREP[m2];
             v.answer2 = total;
             v.explain2 = [
+                'Горизонтальная линия на графике — пакет тарифа: ' + d.pm + ' мин. и ' + pgText + ' ГБ.',
                 'Смотрим на график над номером месяца ' + (m2 + 1) + ': сплошная линия (левая шкала) показывает ' + mins + ' мин., ' +
                 'пунктир (правая шкала) показывает ' + ruNum(gb) + ' ГБ.',
                 overMin > 0
@@ -295,10 +309,10 @@
             // ---- 1.3: сколько месяцев превышен лимит интернета ----
             v.answer3 = d.over.length;
             v.explain3 = [
-                'В пакет входит ' + pgText + ' ГБ интернета. Интернет показывает пунктирная линия (правая шкала).',
-                'Считаем точки, которые лежат выше отметки ' + pgText + ' ГБ. Это месяцы: ' + listAnd(d.over.map(String)) + '.'
+                'В пакет входит ' + pgText + ' ГБ интернета. На графике это горизонтальная линия. Интернет показывает пунктирная линия (правая шкала).',
+                'Считаем точки пунктира, которые лежат выше горизонтальной линии. Это месяцы: ' + listAnd(d.over.map(String)) + '.'
             ].concat(d.equal.length
-                ? ['Точки ровно на отметке ' + pgText + ' ГБ (' + (d.equal.length === 1 ? 'месяц ' : 'месяцы ') +
+                ? ['Точки ровно на горизонтальной линии (' + (d.equal.length === 1 ? 'месяц ' : 'месяцы ') +
                    listAnd(d.equal.map(String)) + ') не считаем: это не превышение.']
                 : []
             ).concat(['Всего таких месяцев: ' + d.over.length + '.']);
@@ -367,3 +381,4 @@
     };
  
 })(window);
+ 
