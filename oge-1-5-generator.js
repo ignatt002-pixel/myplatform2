@@ -203,7 +203,7 @@
     function generateOgeBlock(name, opts) {
         opts = opts || {};
         const def = OGE_GENERATORS[name];
-        if (!def) throw new Error('OGE: нет генератора «' + name + '»');
+        if (!def) throw new Error('нет генератора «' + name + '». Доступные: ' + Object.keys(OGE_GENERATORS).join(', '));
         const code = forcedSeed || (opts.seed === undefined ? newSeedCode() : normalizeSeed(opts.seed));
         const rngSeed = opts.salt === undefined ? code : code + ':' + opts.salt;
         const vars = def.scenario(makeRng(rngSeed), global.OGE_UTILS);
@@ -221,6 +221,12 @@
             task.ogeSeed = code;
             result.push(task);
         });
+        // Ни одно задание не подошло — почти всегда опечатка в "parts". Тихо ничего не показывать нельзя:
+        // иначе урок молча заканчивается раньше времени.
+        if (!result.length) {
+            throw new Error('в генераторе «' + name + '» нет заданий с номерами ' + wanted.join(', ') +
+                '. Допустимые номера в "parts": ' + def.taskIds.join(', '));
+        }
         return result;
     }
  
@@ -293,6 +299,8 @@
                 });
             } catch (e) {
                 console.error('Ошибка генератора ОГЭ:', e);
+                // Ошибку в JSON урока видно сразу: вместо пустоты в урок попадает заметка с причиной
+                out.push({ type: 'theory', text: '⚠️ Ошибка в уроке (generator): ' + (e && e.message ? e.message : e) });
             }
         });
         return out;
